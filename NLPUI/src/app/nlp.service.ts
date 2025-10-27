@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { catchError, Observable, retry, throwError, timeout } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../environments/environment';
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { TextCompletionRequest, TextCompletionResponse, ModelsResponse } from './models/models';
@@ -37,11 +38,50 @@ export class NlpService {
 
     console.log('Submitting completion request:', request);
 
-    return this.http.post<TextCompletionResponse>(
+    return this.http.post<any>(
       `${this.apiUrl}/ask`,
       request,
       { headers }
     ).pipe(
+      // Ensure we return a proper object even if backend returned a JSON string
+      map((resp: any) => {
+        let obj = resp;
+        if (typeof resp === 'string') {
+          try {
+            obj = JSON.parse(resp);
+          } catch (e) {
+            // leave as-is and let downstream error handling report it
+            console.error('Failed to parse JSON string response', e);
+            throw e;
+          }
+        }
+
+        // Normalize choices (finish_reason -> finishReason) and usage keys
+        if (obj?.choices && Array.isArray(obj.choices)) {
+          obj.choices = obj.choices.map((c: any) => ({
+            index: c.index,
+            text: c.text,
+            logprobs: c.logprobs ?? null,
+            finishReason: c.finishReason ?? c.finish_reason ?? c.finish_reason_text ?? null
+          }));
+        }
+
+        if (obj?.usage) {
+          obj.usage = {
+            promptTokens: obj.usage.promptTokens ?? obj.usage.prompt_tokens ?? obj.usage.prompt_tokens_count ?? 0,
+            completionTokens: obj.usage.completionTokens ?? obj.usage.completion_tokens ?? obj.usage.completion_tokens_count ?? 0,
+            totalTokens: obj.usage.totalTokens ?? obj.usage.total_tokens ?? obj.usage.total_tokens_count ?? 0
+          };
+        }
+
+        // Ensure created is a number (some APIs return string)
+        if (obj.created && typeof obj.created === 'string') {
+          const n = Number(obj.created);
+          if (!Number.isNaN(n)) obj.created = n;
+        }
+
+        return obj as TextCompletionResponse;
+      }),
       timeout(this.REQUEST_TIMEOUT),
       retry(1), // Retry once on failure
       catchError(this.handleError)

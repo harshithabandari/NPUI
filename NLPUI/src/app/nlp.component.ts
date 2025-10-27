@@ -153,4 +153,25 @@ export class NlpComponent implements OnInit {
     const model = this.availableModels.find(m => m.id === modelId);
     return model ? model.name : modelId;
   }
+  getAnswer(): string {
+  return this.response?.choices?.[0]?.text ?? '';
+}
+
+getFinishReason(): string {
+  return this.response?.choices?.[0]?.finishReason ?? '';
+}
+
+getTimestamp(): string {
+  return this.formatTimestamp(this.response?.created ?? 0);
+}
+
+getModelName(): string {
+  return this.response?.model ?? '';
+}
+
+getTokenUsage(): string {
+  if (!this.response?.usage) return '';
+  const { promptTokens, completionTokens, totalTokens } = this.response.usage;
+  return `Prompt: ${promptTokens}, Completion: ${completionTokens}, Total: ${totalTokens}`;
+}
 }

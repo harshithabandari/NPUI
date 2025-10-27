@@ -146,7 +146,17 @@
     <p class="loading-text">AI is thinking...</p>
     <p class="loading-subtext">This may take a few moments</p>
   </div>
+<div *ngIf="response">
+  <h2>AI Response</h2>
+  <div class="answer-text" [innerHTML]="getAnswer()"></div> <!-- For formatted (HTML) text -->
 
+  <div class="meta-info">
+    <p><strong>Model:</strong> {{ getModelName() }}</p>
+    <p><strong>Finished Reason:</strong> {{ getFinishReason() }}</p>
+    <p><strong>Answered On:</strong> {{ getTimestamp() }}</p>
+    <p><strong>Token Usage:</strong> {{ getTokenUsage() }}</p>
+  </div>
+</div>
   <!-- Results Section -->
   <section class="results-section" *ngIf="response && !isLoading">
     <div class="results-header">
