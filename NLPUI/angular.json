@@ -13,8 +13,11 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
+            "outputPath": "dist/NLPUI",
+            "index": "src/index.html",
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
+            "sourceMap": true,
             "assets": [
               {
                 "glob": "**/*",
@@ -44,7 +47,11 @@
             "development": {
               "optimization": false,
               "extractLicenses": false,
-              "sourceMap": true
+              "sourceMap": {
+                "scripts": true,
+                "styles": true,
+                "vendor": true
+              }
             }
           },
           "defaultConfiguration": "production"
