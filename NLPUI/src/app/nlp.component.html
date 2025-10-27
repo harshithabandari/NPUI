@@ -157,9 +157,7 @@
     </div>
 
     <div class="answer-card">
-      <div class="answer-text">
-        {{ response.choices[0].text }}
-      </div>
+       <div class="answer" [innerHTML]="safeHtml"></div>
     </div>
 
     <!-- Metadata -->
@@ -182,7 +180,7 @@
 
         <div class="metadata-item">
           <span class="metadata-label">Finish Reason</span>
-          <span class="metadata-value">{{ response.choices[0].finishReason }}</span>
+          <span class="metadata-value">{{ response.choices[0].finish_reason }}</span>
         </div>
       </div>
 
@@ -192,15 +190,15 @@
         <div class="usage-grid">
           <div class="usage-item">
             <span class="usage-label">Prompt</span>
-            <span class="usage-value">{{ response.usage.promptTokens }}</span>
+            <span class="usage-value">{{ response.usage.prompt_tokens }}</span>
           </div>
           <div class="usage-item">
             <span class="usage-label">Completion</span>
-            <span class="usage-value">{{ response.usage.completionTokens }}</span>
+            <span class="usage-value">{{ response.usage.completion_time }}</span>
           </div>
           <div class="usage-item highlight">
             <span class="usage-label">Total</span>
-            <span class="usage-value">{{ response.usage.totalTokens }}</span>
+            <span class="usage-value">{{ response.usage.total_tokens }}</span>
           </div>
         </div>
       </div>

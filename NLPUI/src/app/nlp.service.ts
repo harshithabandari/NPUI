@@ -3,12 +3,7 @@ import { catchError, Observable, retry, throwError, timeout } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../environments/environment';
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
-import { TextCompletionRequest, TextCompletionResponse, ModelsResponse } from './models/models';
-
-export interface NlpAnalysis {
-  sentiment: 'positive' | 'negative' | 'neutral';
-  tokens: string[];
-}
+import { ChatRequest, ChatResponse, ModelsResponse, TextCompletionRequest } from './models/models';
 
 @Injectable({ providedIn: 'root' })
 export class NlpService {
@@ -16,21 +11,19 @@ export class NlpService {
   private readonly REQUEST_TIMEOUT = 120000; // 120 seconds for AI responses
 
   constructor(private http: HttpClient) {
-    console.log('CompletionService initialized with API URL:', this.apiUrl);
+    console.log('NlpService initialized with API URL:', this.apiUrl);
   }
 
   /**
-   * Submit a text completion request
+   * Submit a chat completion request
    */
-  complete(request: TextCompletionRequest): Observable<TextCompletionResponse> {
-    if (!request.prompt || request.prompt.trim().length === 0) {
-      return throwError(() => new Error('Question cannot be empty'));
-    }
+  complete(request: TextCompletionRequest): Observable<ChatResponse> {
+
 
     if (!request.model) {
       return throwError(() => new Error('Model must be specified'));
     }
-   request.model = "google/gemma-2-9b";
+
     const headers = new HttpHeaders({
       'Content-Type': 'application/json',
       'Accept': 'application/json'
@@ -38,73 +31,54 @@ export class NlpService {
 
     console.log('Submitting completion request:', request);
 
-    return this.http.post<any>(
-      `${this.apiUrl}/ask`,
-      request,
-      { headers }
-    ).pipe(
-      // Ensure we return a proper object even if backend returned a JSON string
+    return this.http.post<any>(`${this.apiUrl}/ask`, request, { headers }).pipe(
       map((resp: any) => {
         let obj = resp;
+
+        // Convert string JSON into object if needed
         if (typeof resp === 'string') {
           try {
             obj = JSON.parse(resp);
           } catch (e) {
-            // leave as-is and let downstream error handling report it
             console.error('Failed to parse JSON string response', e);
             throw e;
           }
         }
 
-        // Normalize choices (finish_reason -> finishReason) and usage keys
-        if (obj?.choices && Array.isArray(obj.choices)) {
-          obj.choices = obj.choices.map((c: any) => ({
-            index: c.index,
-            text: c.text,
+        // Normalize ChatResponse structure
+        const mapped: ChatResponse = {
+          id: obj.id ?? '',
+          object: obj.object ?? '',
+          created: typeof obj.created === 'string' ? Number(obj.created) : obj.created ?? Date.now(),
+          model: obj.model ?? '',
+          choices: (obj.choices ?? []).map((c: any) => ({
+            index: c.index ?? 0,
+            message: {
+              role: c.message?.role ?? 'assistant',
+              content: c.message?.content ?? c.text ?? ''
+            },
             logprobs: c.logprobs ?? null,
-            finishReason: c.finishReason ?? c.finish_reason ?? c.finish_reason_text ?? null
-          }));
-        }
+            finish_reason: c.finish_reason ?? c.finishReason ?? 'stop'
+          })),
+          usage: {
+            queue_time: obj.usage?.queue_time ?? 0,
+            prompt_tokens: obj.usage?.prompt_tokens ?? 0,
+            prompt_time: obj.usage?.prompt_time ?? 0,
+            completion_tokens: obj.usage?.completion_tokens ?? 0,
+            completion_time: obj.usage?.completion_time ?? 0,
+            total_tokens: obj.usage?.total_tokens ?? 0,
+            total_time: obj.usage?.total_time ?? 0
+          },
+          usage_breakdown: obj.usage_breakdown ?? null,
+          system_fingerprint: obj.system_fingerprint ?? '',
+          x_groq: { id: obj.x_groq?.id ?? '' },
+          service_tier: obj.service_tier ?? ''
+        };
 
-        if (obj?.usage) {
-          obj.usage = {
-            promptTokens: obj.usage.promptTokens ?? obj.usage.prompt_tokens ?? obj.usage.prompt_tokens_count ?? 0,
-            completionTokens: obj.usage.completionTokens ?? obj.usage.completion_tokens ?? obj.usage.completion_tokens_count ?? 0,
-            totalTokens: obj.usage.totalTokens ?? obj.usage.total_tokens ?? obj.usage.total_tokens_count ?? 0
-          };
-        }
-
-        // Ensure created is a number (some APIs return string)
-        if (obj.created && typeof obj.created === 'string') {
-          const n = Number(obj.created);
-          if (!Number.isNaN(n)) obj.created = n;
-        }
-
-        return obj as TextCompletionResponse;
+        return mapped;
       }),
       timeout(this.REQUEST_TIMEOUT),
-      retry(1), // Retry once on failure
-      catchError(this.handleError)
-    );
-  }
-
-  /**
-   * Retrieve a completion by ID
-   */
-  getCompletionById(id: number): Observable<TextCompletionResponse> {
-    if (!id || id <= 0) {
-      return throwError(() => new Error('Invalid completion ID'));
-    }
-
-    const headers = new HttpHeaders({
-      'Accept': 'application/json'
-    });
-
-    return this.http.get<TextCompletionResponse>(
-      `${this.apiUrl}/textcompletion/${id}`,
-      { headers }
-    ).pipe(
-      timeout(this.REQUEST_TIMEOUT),
+      retry(1),
       catchError(this.handleError)
     );
   }
@@ -113,64 +87,52 @@ export class NlpService {
    * Get available models
    */
   getModels(): Observable<ModelsResponse> {
-    return this.http.get<ModelsResponse>(
-      `${this.apiUrl}/models`
-    ).pipe(
+    return this.http.get<ModelsResponse>(`${this.apiUrl}/models`).pipe(
       timeout(10000),
       catchError(this.handleError)
     );
   }
 
   /**
-   * Health check
+   * Health check endpoint
    */
   healthCheck(): Observable<any> {
-    return this.http.get(
-      `${this.apiUrl}/textcompletion/health`
-    ).pipe(
+    return this.http.get(`${this.apiUrl}/health`).pipe(
       timeout(5000),
       catchError(this.handleError)
     );
   }
 
   /**
-   * Handle HTTP errors
+   * Generic HTTP error handler
    */
   private handleError(error: HttpErrorResponse): Observable<never> {
     let errorMessage = 'An unknown error occurred';
 
     if (error.error instanceof ErrorEvent) {
-      // Client-side or network error
-      console.error('Client-side error:', error.error.message);
       errorMessage = `Network error: ${error.error.message}`;
     } else {
-      // Backend returned an unsuccessful response code
-      console.error(
-        `Backend returned code ${error.status}, ` +
-        `body was: ${JSON.stringify(error.error)}`
-      );
-
       switch (error.status) {
         case 0:
           errorMessage = 'Unable to connect to the server. Please check your internet connection.';
           break;
         case 400:
-          errorMessage = error.error?.message || 'Invalid request. Please check your input.';
+          errorMessage = error.error?.message || 'Invalid request.';
           break;
         case 404:
-          errorMessage = 'The requested resource was not found.';
+          errorMessage = 'Requested resource not found.';
           break;
         case 408:
-          errorMessage = 'Request timeout. The server took too long to respond.';
+          errorMessage = 'Request timeout.';
           break;
         case 429:
-          errorMessage = 'Too many requests. Please wait a moment and try again.';
+          errorMessage = 'Too many requests. Try again later.';
           break;
         case 500:
-          errorMessage = 'Internal server error. Please try again later.';
+          errorMessage = 'Internal server error.';
           break;
         case 503:
-          errorMessage = 'Service temporarily unavailable. Please try again later.';
+          errorMessage = 'Service unavailable.';
           break;
         default:
           errorMessage = error.error?.message || `Server error: ${error.status}`;

@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
-import { TextCompletionResponse, ModelInfo, TextCompletionRequest } from './models/models';
+import { TextCompletionResponse, ModelInfo, TextCompletionRequest, ChatResponse } from './models/models';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NlpService } from './nlp.service';
@@ -27,7 +27,7 @@ export class NlpComponent implements OnInit {
   // State
   isLoading: boolean = false;
   errorMessage: string = '';
-  response: TextCompletionResponse | null = null;
+  response: ChatResponse | null = null;
   availableModels: ModelInfo[] = [];
 
   // UI helpers
@@ -96,11 +96,11 @@ export class NlpComponent implements OnInit {
         })
       )
       .subscribe({
-next: (response: TextCompletionResponse) => {
+next: (response: ChatResponse) => {
   this.response = response;
 
   // Safely render model's HTML output
-  const rawHtml = response.choices?.[0]?.text || '';
+  const rawHtml = response.choices?.[0]?.message.content || '';
   const cleanedHtml = this.cleanHtml(rawHtml);
   this.safeHtml = this.sanitizer.bypassSecurityTrustHtml(cleanedHtml);
 
@@ -141,7 +141,7 @@ private sanitizeContent(content: string): string {
    */
   copyAnswer(): void {
     if (this.response && this.response.choices.length > 0) {
-      const answer = this.response.choices[0].text;
+      const answer = this.response.choices[0].message.content;
       navigator.clipboard.writeText(answer).then(() => {
         console.log('Answer copied to clipboard');
         // You could show a toast notification here
@@ -170,11 +170,11 @@ private sanitizeContent(content: string): string {
     return model ? model.name : modelId;
   }
   getAnswer(): string {
-  return this.response?.choices?.[0]?.text ?? '';
+  return this.response?.choices?.[0]?.message.content ?? '';
 }
 
 getFinishReason(): string {
-  return this.response?.choices?.[0]?.finishReason ?? '';
+  return this.response?.choices?.[0]?.finish_reason ?? '';
 }
 
 getTimestamp(): string {
@@ -187,7 +187,7 @@ getModelName(): string {
 
 getTokenUsage(): string {
   if (!this.response?.usage) return '';
-  const { promptTokens, completionTokens, totalTokens } = this.response.usage;
-  return `Prompt: ${promptTokens}, Completion: ${completionTokens}, Total: ${totalTokens}`;
+  const { prompt_tokens, completion_tokens, total_tokens } = this.response.usage;
+  return `Prompt: ${prompt_tokens}, Completion: ${completion_tokens}, Total: ${total_tokens}`;
 }
 }
