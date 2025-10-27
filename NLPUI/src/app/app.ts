@@ -1,9 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { NlpComponent } from "./nlp.component";
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, NlpComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
