@@ -146,17 +146,7 @@
     <p class="loading-text">AI is thinking...</p>
     <p class="loading-subtext">This may take a few moments</p>
   </div>
-<div *ngIf="response">
-  <h2>AI Response</h2>
-  <div class="answer-text" [innerHTML]="getAnswer()"></div> <!-- For formatted (HTML) text -->
 
-  <div class="answer-card">
-  <div class="answer-text">
-  {{ response.choices[0].text }}
-</div>
-
-</div>
-</div>
   <!-- Results Section -->
   <section class="results-section" *ngIf="response && !isLoading">
     <div class="results-header">
