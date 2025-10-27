@@ -24,8 +24,8 @@ export interface TextCompletionResponse {
 export interface Choice {
   index: number;
   text: string;
-  logprobs?: any; // Use the relevant type if available
-  finishReason: string; // Note the lowercase 'f' as per API response
+  logprobs: any | null;
+  finishReason: string;
 }
 
 export interface Usage {

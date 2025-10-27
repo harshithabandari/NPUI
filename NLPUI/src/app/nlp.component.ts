@@ -1,9 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { TextCompletionResponse, ModelInfo, TextCompletionRequest } from './models/models';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NlpService } from './nlp.service';
 import { finalize } from 'rxjs/operators';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-nlp',
@@ -15,6 +16,9 @@ import { finalize } from 'rxjs/operators';
 export class NlpComponent implements OnInit {
   // Form fields
   question: string = '';
+  safeHtml: SafeHtml | null = null;
+
+
   context: string = '';
   selectedModel: string = 'google/gemma-2-9b-it';
   maxTokens: number = 500;
@@ -29,7 +33,8 @@ export class NlpComponent implements OnInit {
   // UI helpers
   showAdvancedOptions: boolean = false;
 
-  constructor(private completionService: NlpService) {}
+
+  constructor(private completionService: NlpService,private sanitizer: DomSanitizer,private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.loadAvailableModels();
@@ -91,11 +96,17 @@ export class NlpComponent implements OnInit {
         })
       )
       .subscribe({
-        next: (response: TextCompletionResponse) => {
-          this.response = response;
-          console.log('Response received:', response);
-          this.isLoading = false;
-        },
+next: (response: TextCompletionResponse) => {
+  this.response = response;
+
+  // Safely render model's HTML output
+  const rawHtml = response.choices?.[0]?.text || '';
+  const cleanedHtml = this.cleanHtml(rawHtml);
+  this.safeHtml = this.sanitizer.bypassSecurityTrustHtml(cleanedHtml);
+
+  this.isLoading = false;
+  this.cdr.detectChanges(); // ensure UI updates immediately
+},
         error: (error) => {
           console.error('Completion error:', error);
           this.errorMessage = error?.message || 'An error occurred while processing your request.';
@@ -112,7 +123,12 @@ export class NlpComponent implements OnInit {
     this.response = null;
     this.errorMessage = '';
   }
-
+  private cleanHtml(content: string): string {
+  return content.replace(/<script.*?>.*?<\/script>/gi, '');
+}
+private sanitizeContent(content: string): string {
+  return content.replace(/<script.*?>.*?<\/script>/gi, '');
+}
   /**
    * Toggle advanced options
    */

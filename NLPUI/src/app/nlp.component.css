@@ -541,4 +541,26 @@
   .options-grid {
     grid-template-columns: 1fr;
   }
+
+.answer-text {
+  line-height: 1.6;
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.answer-text h2 {
+  color: #1e40af;
+  margin-top: 1.2em;
+}
+
+.answer-text strong {
+  color: #111827;
+}
+
+.answer-text em {
+  color: #6b7280;
+  font-style: italic;
+}
+
+
 }
